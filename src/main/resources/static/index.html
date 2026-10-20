@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrustVault</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f3f6fb;
+            color: #17233b;
+            margin: 0;
+            padding: 24px;
+        }
+
+        main {
+            max-width: 520px;
+            margin: 60px auto;
+            padding: 28px;
+            background: white;
+            border-radius: 12px;
+        }
+
+        button {
+            background: #1d4ed8;
+            color: white;
+            padding: 12px 18px;
+            border: none;
+            border-radius: 6px;
+            font: inherit;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <h1>TrustVault</h1>
+        <p>Check the connection to your TrustVault server.</p>
+
+        <button id="checkButton" type="button">
+            Check connection
+        </button>
+
+        <p id="statusMessage" role="status">
+            Connection not checked yet.
+        </p>
+    </main>
+
+    <script>
+        const button = document.getElementById("checkButton");
+        const message = document.getElementById("statusMessage");
+
+        button.addEventListener("click", async function () {
+            message.textContent = "Checking...";
+            button.disabled = true;
+
+            try {
+                const response = await fetch("/api/health", {
+                    cache: "no-store"
+                });
+
+                if (!response.ok) {
+                    throw new Error("Request failed");
+                }
+
+                message.textContent = await response.text();
+            } catch (error) {
+                message.textContent =
+                    "Connection failed. Check that the server is running.";
+            } finally {
+                button.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
