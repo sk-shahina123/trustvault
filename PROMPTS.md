@@ -26,4 +26,31 @@
   successfully queried MySQL.
 - Findings: No authentication bug was identified by these checks.
   Disabled-account behavior and document authorization still need tests.
-- Code commit: Add the actual commit link after publishing.
+- Code commit: Add the actual commit link after publishing.@'
+
+## 2026-10-21 — Display the signed-in account
+- Request: Continue building the interface alongside the backend.
+- AI output: An /api/me endpoint and UI showing the account email,
+  role, connection check, and sign-out link.
+- Review and fix: Updated the frontend to distinguish HTTP errors
+  from failures to reach the server.
+- Manual verification: Account display, connection check, and
+  sign-out worked.
+- Remaining verification: HTTP error and expired-session handling
+  need dedicated checks.
+- Code commit: Pending.
+
+## 2026-10-21 — Restrict an endpoint to ADMIN
+- Request: Add backend authorization and check access with all three roles.
+- AI output: A SecurityFilterChain rule for /api/admin/** and an
+  AdminController endpoint.
+- Review: The role restriction runs on the server before the controller.
+  Typing the endpoint URL directly does not bypass it.
+- Manual verification: ADMIN received "Admin access confirmed".
+  OWNER and VIEWER received 403 Forbidden.
+- Findings: No defect was found in these manual checks.
+  This does not yet implement document-specific permissions or
+  record denied requests in an audit log.
+- Remaining work: Automated authorization tests, document permissions,
+  and audit recording.
+- Code commit: Pending.

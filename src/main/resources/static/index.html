@@ -37,6 +37,8 @@
 <body>
     <main>
         <h1>TrustVault</h1>
+        <p id="accountMessage" role="status">Loading account details...</p>
+<p><a href="/logout">Sign out</a></p>
         <p>Check the connection to your TrustVault server.</p>
 
         <button id="checkButton" type="button">
@@ -49,30 +51,92 @@
     </main>
 
     <script>
-        const button = document.getElementById("checkButton");
-        const message = document.getElementById("statusMessage");
+    const accountMessage = document.getElementById("accountMessage");
+    const button = document.getElementById("checkButton");
+    const message = document.getElementById("statusMessage");
 
-        button.addEventListener("click", async function () {
-            message.textContent = "Checking...";
-            button.disabled = true;
+    async function getResponse(url, expectedType) {
+        let response;
 
-            try {
-                const response = await fetch("/api/health", {
-                    cache: "no-store"
-                });
+        try {
+            response = await fetch(url, {
+                headers: { Accept: expectedType },
+                cache: "no-store"
+            });
+        } catch (error) {
+            throw new Error(
+                "Cannot reach TrustVault. Check that the application is running."
+            );
+        }
 
-                if (!response.ok) {
-                    throw new Error("Request failed");
-                }
+        const wentToLogin = response.redirected &&
+            new URL(response.url).pathname === "/login";
 
-                message.textContent = await response.text();
-            } catch (error) {
-                message.textContent =
-                    "Connection failed. Check that the server is running.";
-            } finally {
-                button.disabled = false;
+        if (response.status === 401 || wentToLogin) {
+            window.location.assign("/login");
+            return null;
+        }
+
+        if (response.status === 403) {
+            throw new Error("You do not have permission for this action.");
+        }
+
+        if (!response.ok) {
+            throw new Error(
+                "TrustVault could not complete the request (HTTP " +
+                response.status + ")."
+            );
+        }
+
+        const contentType = response.headers.get("content-type") || "";
+
+        if (!contentType.includes(expectedType)) {
+            throw new Error("TrustVault returned an unexpected response.");
+        }
+
+        return response;
+    }
+
+    async function loadAccount() {
+        try {
+            const response = await getResponse(
+                "/api/me", "application/json"
+            );
+
+            if (response === null) {
+                return;
             }
-        });
-    </script>
+
+            const account = await response.json();
+
+            accountMessage.textContent =
+                "Signed in as " + account.email +
+                " | Role: " + account.role;
+        } catch (error) {
+            accountMessage.textContent = error.message;
+        }
+    }
+
+    button.addEventListener("click", async function () {
+        message.textContent = "Checking...";
+        button.disabled = true;
+
+        try {
+            const response = await getResponse(
+                "/api/health", "text/plain"
+            );
+
+            if (response !== null) {
+                message.textContent = await response.text();
+            }
+        } catch (error) {
+            message.textContent = error.message;
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    loadAccount();
+</script>
 </body>
 </html>
