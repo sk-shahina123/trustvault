@@ -54,3 +54,15 @@
 - Remaining work: Automated authorization tests, document permissions,
   and audit recording.
 - Code commit: Pending.
+
+## 2026-10-22 — Document upload, listing, and audit logging
+
+- Request: Connect the dashboard to document upload and listing, with permission checks and audit records.
+- AI assistance: Provided upload validation, document service/controller, error handling, audit recording, and dashboard JavaScript.
+- Security review: The server derives ownership from the authenticated account. Upload requires the OWNER role. Document listing filters access in SQL. Document creation and its successful audit entry share a transaction.
+- AI mistake corrected: The original DocumentService.java download was missing its final class-closing brace. This was corrected before integration.
+- Verified: The application started and the OWNER upload displayed a success message. MySQL showed document 1 with an UPLOAD/SUCCESS audit entry.
+- Verified: MySQL recorded the VIEWER attempt as UPLOAD/DENIED with reason OWNER_ROLE_REQUIRED. No document named "Viewer denied upload test" was created.
+- Verification pending: Capture the direct request's HTTP 403/PASS output. Complete automated authorization, revocation, and transaction-rollback tests.
+- Troubleshooting: Resolved database authentication failure by resetting the trustvault_app password through the MySQL administrator account and supplying it through TRUSTVAULT_DB_PASSWORD.
+- Commit: Pending.

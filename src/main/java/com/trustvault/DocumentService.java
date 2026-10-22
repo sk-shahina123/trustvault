@@ -1,0 +1,270 @@
+package com.trustvault;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.sql.PreparedStatement;
+import java.sql.Statement;
+import java.util.List;
+import java.util.Objects;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.trustvault.AuditService.EventType;
+import com.trustvault.UploadValidator.ValidatedUpload;
+import com.trustvault.UploadValidator.ValidationException;
+
+@Service
+public class DocumentService {
+
+    private final JdbcTemplate jdbcTemplate;
+    private final AuditService auditService;
+    private final TransactionTemplate transactions;
+
+    public DocumentService(
+            JdbcTemplate jdbcTemplate,
+            AuditService auditService,
+            PlatformTransactionManager transactionManager) {
+
+        this.jdbcTemplate = jdbcTemplate;
+        this.auditService = auditService;
+        this.transactions = new TransactionTemplate(transactionManager);
+    }
+
+    private record Account(
+            long id, String email, String role, boolean enabled) {
+    }
+
+    public record DocumentSummary(
+            long id,
+            String name,
+            String ownerEmail,
+            String category,
+            String createdAt,
+            String accessLevel) {
+    }
+
+    public long upload(
+            String authenticatedEmail,
+            String name,
+            String category,
+            MultipartFile file) {
+
+        Account actor = currentAccount(
+                authenticatedEmail, EventType.UPLOAD);
+
+        if (!"OWNER".equals(actor.role())) {
+            auditService.recordDenied(
+                    actor.id(),
+                    actor.email(),
+                    null,
+                    EventType.UPLOAD,
+                    "OWNER_ROLE_REQUIRED");
+
+            throw problem(
+                    403, "Only an OWNER account can upload documents.");
+        }
+
+        ValidatedUpload upload;
+
+        try {
+            if (file == null || file.isEmpty()) {
+                throw new ValidationException(
+                        400, "Choose a non-empty file.");
+            }
+
+            if (file.getSize() > UploadValidator.MAX_BYTES) {
+                throw new ValidationException(
+                        413, "Maximum file size is 5 MiB.");
+            }
+
+            byte[] data;
+
+            try (InputStream input = file.getInputStream()) {
+                data = input.readNBytes(UploadValidator.MAX_BYTES + 1);
+            }
+
+            upload = UploadValidator.validate(
+                    name,
+                    category,
+                    file.getOriginalFilename(),
+                    file.getContentType(),
+                    data);
+
+        } catch (ValidationException exception) {
+            auditService.recordFailure(
+                    actor.id(),
+                    actor.email(),
+                    null,
+                    EventType.UPLOAD,
+                    exception.getMessage());
+
+            throw problem(
+                    exception.status(), exception.getMessage());
+
+        } catch (IOException exception) {
+            auditService.recordFailure(
+                    actor.id(),
+                    actor.email(),
+                    null,
+                    EventType.UPLOAD,
+                    "UPLOAD_READ_FAILED");
+
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "The uploaded file could not be read.",
+                    exception);
+        }
+
+        // Save the document and its success audit entry together.
+        // If either database write fails, the transaction rolls back.
+        Long documentId = transactions.execute(status -> {
+            KeyHolder keys = new GeneratedKeyHolder();
+
+            jdbcTemplate.update(connection -> {
+                PreparedStatement statement = connection.prepareStatement(
+                        """
+                        INSERT INTO documents
+                            (owner_id, name, original_filename, category,
+                             content_type, size_bytes, file_data)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        Statement.RETURN_GENERATED_KEYS);
+
+                statement.setLong(1, actor.id());
+                statement.setString(2, upload.name());
+                statement.setString(3, upload.filename());
+                statement.setString(4, upload.category());
+                statement.setString(5, upload.contentType());
+                statement.setInt(6, upload.data().length);
+                statement.setBytes(7, upload.data());
+
+                return statement;
+            }, keys);
+
+            Number generatedId = Objects.requireNonNull(
+                    keys.getKey(),
+                    "Database did not return a document ID");
+
+            long id = generatedId.longValue();
+
+            auditService.recordSuccess(
+                    actor.id(),
+                    actor.email(),
+                    id,
+                    EventType.UPLOAD,
+                    "DOCUMENT_CREATED");
+
+            return id;
+        });
+
+        return Objects.requireNonNull(documentId);
+    }
+
+    public List<DocumentSummary> list(String authenticatedEmail) {
+        Account actor = currentAccount(
+                authenticatedEmail, EventType.LIST);
+
+        return Objects.requireNonNull(transactions.execute(status -> {
+            // Return metadata only for owned or explicitly shared documents.
+            // Being ADMIN does not automatically grant document access.
+            List<DocumentSummary> documents = jdbcTemplate.query(
+                    """
+                    SELECT d.id, d.name, owner.email AS owner_email,
+                           d.category, d.created_at,
+                           CASE
+                               WHEN d.owner_id = ? THEN 'OWNER'
+                               WHEN p.permission = 'EDIT' AND ? = 'OWNER'
+                                   THEN 'EDIT'
+                               ELSE 'READ'
+                           END AS access_level
+                    FROM documents d
+                    JOIN app_users owner ON owner.id = d.owner_id
+                    LEFT JOIN document_permissions p
+                        ON p.document_id = d.id AND p.user_id = ?
+                    WHERE d.owner_id = ? OR p.permission IN ('READ', 'EDIT')
+                    ORDER BY d.created_at DESC, d.id DESC
+                    LIMIT 100
+                    """,
+                    (rs, rowNumber) -> new DocumentSummary(
+                            rs.getLong("id"),
+                            rs.getString("name"),
+                            rs.getString("owner_email"),
+                            rs.getString("category"),
+                            rs.getTimestamp("created_at")
+                                    .toInstant().toString(),
+                            rs.getString("access_level")),
+                    actor.id(),
+                    actor.role(),
+                    actor.id(),
+                    actor.id());
+
+            auditService.recordSuccess(
+                    actor.id(),
+                    actor.email(),
+                    null,
+                    EventType.LIST,
+                    "RETURNED_" + documents.size() + "_DOCUMENTS");
+
+            return documents;
+        }));
+    }
+
+    private Account currentAccount(String email, EventType eventType) {
+        // Check the current account state in MySQL.
+        List<Account> accounts = jdbcTemplate.query(
+                """
+                SELECT id, email, role, enabled
+                FROM app_users
+                WHERE email = ?
+                """,
+                (rs, rowNumber) -> new Account(
+                        rs.getLong("id"),
+                        rs.getString("email"),
+                        rs.getString("role"),
+                        rs.getBoolean("enabled")),
+                email);
+
+        if (accounts.isEmpty()) {
+            auditService.recordDenied(
+                    null,
+                    email,
+                    null,
+                    eventType,
+                    "ACCOUNT_NOT_FOUND");
+
+            throw problem(
+                    403, "This account cannot access documents.");
+        }
+
+        Account account = accounts.get(0);
+
+        if (!account.enabled()) {
+            auditService.recordDenied(
+                    account.id(),
+                    account.email(),
+                    null,
+                    eventType,
+                    "ACCOUNT_DISABLED");
+
+            throw problem(
+                    403, "This account cannot access documents.");
+        }
+
+        return account;
+    }
+
+    private static ResponseStatusException problem(
+            int status, String message) {
+
+        return new ResponseStatusException(
+                HttpStatus.valueOf(status), message);
+    }
+}
