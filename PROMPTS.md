@@ -66,3 +66,12 @@
 - Verification pending: Capture the direct request's HTTP 403/PASS output. Complete automated authorization, revocation, and transaction-rollback tests.
 - Troubleshooting: Resolved database authentication failure by resetting the trustvault_app password through the MySQL administrator account and supplying it through TRUSTVAULT_DB_PASSWORD.
 - Commit: Pending.
+
+## 23 October 2026 — Cloud database connection
+
+- Goal: Connect TrustVault to Aiven MySQL using verified TLS.
+- AI guidance that needed correction: Repeated configuration changes were suggested before testing the exact password stored in the application's environment.
+- Finding: Manually entered MySQL credentials worked, but the password stored in the environment was rejected.
+- Fix: Verified the cloud account and updated the application environment with the working password.
+- Validation: Spring Boot connected to Aiven, created the demo accounts, and admin, owner, and viewer logins worked.
+- Public application deployment is still pending.
