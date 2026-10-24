@@ -1,0 +1,8 @@
+**
+!Dockerfile
+!.dockerignore
+!pom.xml
+!src/
+!src/**
+!certs/
+!certs/aiven-truststore.p12
