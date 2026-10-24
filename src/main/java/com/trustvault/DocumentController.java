@@ -2,7 +2,11 @@ package com.trustvault;
 
 import java.util.List;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -63,4 +67,26 @@ public class DocumentController {
                 .cacheControl(CacheControl.noStore())
                 .body(documentService.list(authentication.getName()));
     }
+    @GetMapping("/api/documents/{documentId}/download")
+public ResponseEntity<byte[]> download(
+        Authentication authentication,
+        @PathVariable("documentId") long documentId) {
+
+    DocumentService.DocumentDownload file =
+            documentService.download(
+                    authentication.getName(), documentId);
+
+    String disposition = ContentDisposition.attachment()
+            .filename(file.filename(), StandardCharsets.UTF_8)
+            .build()
+            .toString();
+
+    return ResponseEntity.ok()
+            .cacheControl(CacheControl.noStore())
+            .header(HttpHeaders.CONTENT_DISPOSITION, disposition)
+            .header("X-Content-Type-Options", "nosniff")
+            .contentType(MediaType.parseMediaType(file.contentType()))
+            .contentLength(file.data().length)
+            .body(file.data());
+}
 }

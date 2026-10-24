@@ -124,7 +124,21 @@ async function loadDocuments() {
                 cell.textContent = String(value);
                 row.appendChild(cell);
             }
+const downloadLink = document.createElement("a");
+downloadLink.textContent = "Download";
+downloadLink.href =
+    "/api/documents/" +
+    encodeURIComponent(String(entry.id)) +
+    "/download";
 
+downloadLink.setAttribute(
+    "aria-label",
+    "Download " + entry.name
+);
+
+const downloadContainer = document.createElement("div");
+downloadContainer.appendChild(downloadLink);
+row.firstElementChild.appendChild(downloadContainer);
             return row;
         });
 

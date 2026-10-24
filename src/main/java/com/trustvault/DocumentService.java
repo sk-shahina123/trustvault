@@ -216,7 +216,60 @@ public class DocumentService {
             return documents;
         }));
     }
+public record DocumentDownload(
+        String filename, String contentType, byte[] data) {
+}
 
+public DocumentDownload download(
+        String authenticatedEmail, long documentId) {
+
+    Account actor = currentAccount(
+            authenticatedEmail, EventType.DOWNLOAD);
+
+    DocumentDownload result = transactions.execute(status -> {
+        // Fetch bytes only from a document this account may access.
+        List<DocumentDownload> matches = jdbcTemplate.query(
+                """
+                SELECT d.original_filename, d.content_type, d.file_data
+                FROM documents d
+                LEFT JOIN document_permissions p
+                    ON p.document_id = d.id AND p.user_id = ?
+                WHERE d.id = ?
+                  AND (
+                      d.owner_id = ?
+                      OR p.permission IN ('READ', 'EDIT')
+                  )
+                """,
+                (rs, rowNumber) -> new DocumentDownload(
+                        rs.getString("original_filename"),
+                        rs.getString("content_type"),
+                        rs.getBytes("file_data")),
+                actor.id(), documentId, actor.id());
+
+        if (matches.isEmpty()) {
+            return null;
+        }
+
+        // The audit must commit before bytes leave this service.
+        auditService.recordSuccess(
+                actor.id(), actor.email(), documentId,
+                EventType.DOWNLOAD, "DOWNLOAD_AUTHORIZED");
+
+        return matches.get(0);
+    });
+
+    if (result == null) {
+        // Record the denial after the read transaction has finished.
+        auditService.recordDenied(
+                actor.id(), actor.email(), documentId,
+                EventType.DOWNLOAD, "NOT_FOUND_OR_NO_ACCESS");
+
+        // Same response for a missing document and missing permission.
+        throw problem(404, "Document not found or access unavailable.");
+    }
+
+    return result;
+}
     private Account currentAccount(String email, EventType eventType) {
         // Check the current account state in MySQL.
         List<Account> accounts = jdbcTemplate.query(

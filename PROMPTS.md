@@ -75,3 +75,13 @@
 - Fix: Verified the cloud account and updated the application environment with the working password.
 - Validation: Spring Boot connected to Aiven, created the demo accounts, and admin, owner, and viewer logins worked.
 - Public application deployment is still pending.
+## 2026-10-24 — Downloads and cloud login troubleshooting
+
+- Prompt: "invalid credentials".
+- AI assistance: Examined authentication logs and suggested a direct MySQL login test.
+- Findings: Aiven was powered off. After restarting it, MySQL rejected the application's database login.
+- Fix: Verified that trustvault_app existed and was unlocked, reset its private database password, and updated both datasource environment-variable sets.
+- Download implementation: Added the download endpoint and dashboard link, using the authenticated account and permission checks in DocumentService.
+- Manual verification: The viewer's direct download request returned "Document not found or access unavailable". SQL checks confirmed owner SUCCESS and viewer DENIED download audit records.
+- Lesson: Successful Spring Boot startup alone does not establish that database authentication works.
+- Pending: Automated permission and audit tests.
