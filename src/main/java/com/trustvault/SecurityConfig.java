@@ -59,7 +59,9 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, RequestAudit a
             .headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives(
                     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
                     + "img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")))
-            .logout(Customizer.withDefaults());
+            .logout(logout -> logout.logoutSuccessUrl("/login?logout")
+                    .invalidateHttpSession(true).clearAuthentication(true)
+                    .deleteCookies("JSESSIONID").permitAll());
 
     return http.build();
 }

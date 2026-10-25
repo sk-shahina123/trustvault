@@ -111,6 +111,20 @@ class SecurityIntegrationTests {
     }
     private void rejectAudit() { root.execute("CREATE TRIGGER reject_audit_for_test BEFORE INSERT ON audit_events FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Intentional audit failure in isolated test'"); }
 
+    @Test void logoutRendersConfirmationAndInvalidatesSession() throws Exception {
+        MockHttpSession session=login(OWNER);
+        mvc.perform(get("/logout").session(session).accept("text/html"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"_csrf\"")));
+        mvc.perform(post("/logout").session(session)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/me").session(session)).andExpect(status().isOk());
+        mvc.perform(post("/logout").session(session).with(csrf()))
+                .andExpect(status().isFound()).andExpect(redirectedUrl("/login?logout"))
+                .andExpect(unauthenticated());
+        assertThat(session.isInvalid()).isTrue();
+        mvc.perform(get("/api/me")).andExpect(status().isUnauthorized());
+    }
+
     @Test void loginPageRendersWithCsrfAndRegistrationLink() throws Exception {
         mvc.perform(get("/login").accept("text/html")).andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"_csrf\"")))

@@ -21,3 +21,5 @@ For document 2, user-supplied audit rows showed GRANT/SUCCESS (24), viewer DOWNL
 `mvn -DskipTests test-compile` completed successfully for the registration update on 25 October 2026. Six new test methods compile, but have not yet run against isolated MySQL in this session. Do not add them to the previous 34-pass count.
 
 Live deployed commit cfb648a passed all three demo logins, upload, safe download headers, CSRF rejection, unauthorized access, sharing, READ edit/delete denial, admin audit denial for viewer, and same-session revocation. The script stopped at owner deletion: Aiven reported `SELECT with locking clause command denied` on `documents`. Apply database/005_grant_document_management.sql as the cloud administrator and rerun. Synthetic test document ID 3 needs cleanup after that grant. Admin audit contents and successful owner deletion are not yet verified by the full live script.
+
+Logout repair: `mvn -DskipTests test-compile` passed. A session/CSRF regression test was added, but not executed against MySQL in this session. Live ADMIN login and /audit.html returned success; audit API verification is recorded separately once complete.

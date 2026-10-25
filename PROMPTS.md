@@ -126,3 +126,11 @@
 - Correction: Escaped the CSS percent sign in commit cfb648a and added GET /login regression coverage in this update. HTML login requests in the live script explicitly request text/html.
 - Registration checks cover role spoofing, cross-user access, upload, admin-audit denial, CSRF, duplicates, weak/mismatched passwords, and rollback if audit fails. These new tests must not be described as passed until executed.
 - Fix commit: see the registration release commit in Git history.
+
+## 2026-10-25 - Sign-out route regression
+
+- Request: Repair sign-out returning a resource-not-found response and verify live audit viewing.
+- Cause: The UI linked to GET /logout, but the custom security setup did not provide a logout confirmation page.
+- Correction: Add an explicit GET confirmation page containing the CSRF token; POST /logout invalidates the session, clears authentication/cookie and redirects to /login?logout. GET does not terminate sessions.
+- Verification: Production sources and test sources compile. Added a test covering confirmation rendering, CSRF refusal, preservation of session after refused logout, and successful logout/session invalidation. Execution of new MySQL tests remains pending.
+- Commit: see the sign-out repair commit in repository history.
