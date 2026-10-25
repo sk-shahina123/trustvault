@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: trustvault
+    runtime: docker
+    repo: https://github.com/sk-shahina123/trustvault
+    branch: main
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: cloud,hosted
+      - key: TRUSTVAULT_DB_URL
+        value: jdbc:mysql://mysql-10ed7480-trustvault-project.e.aivencloud.com:11587/trustvault
+      - key: TRUSTVAULT_DB_USERNAME
+        value: trustvault_app
+      - key: TRUSTVAULT_DB_PASSWORD
+        sync: false

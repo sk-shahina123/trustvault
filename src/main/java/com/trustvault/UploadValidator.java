@@ -93,7 +93,7 @@ public final class UploadValidator {
                 name, category, filename, contentType, data);
     }
 
-    private static String requiredText(
+    static String requiredText(
             String raw, String label, int maxLength) {
 
         String value = raw == null ? "" : raw.strip();

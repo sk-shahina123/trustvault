@@ -6,6 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -169,10 +170,8 @@ public class DocumentService {
     }
 
     public List<DocumentSummary> list(String authenticatedEmail) {
-        Account actor = currentAccount(
-                authenticatedEmail, EventType.LIST);
-
         return Objects.requireNonNull(transactions.execute(status -> {
+            Account actor = currentAccount(authenticatedEmail, EventType.LIST);
             // Return metadata only for owned or explicitly shared documents.
             // Being ADMIN does not automatically grant document access.
             List<DocumentSummary> documents = jdbcTemplate.query(
@@ -312,6 +311,86 @@ public DocumentDownload download(
         }
 
         return account;
+    }
+
+    public void edit(String email, long documentId, String name,
+            String category, MultipartFile replacement) {
+        mutate(email, documentId, EventType.EDIT, actor -> {
+            String cleanName = UploadValidator.requiredText(name, "Document name", 255);
+            String cleanCategory = UploadValidator.requiredText(category, "Category", 100);
+            boolean replace = replacement != null && replacement.getOriginalFilename() != null
+                    && !replacement.getOriginalFilename().isBlank();
+            if (replace) {
+                try (InputStream input = replacement.getInputStream()) {
+                    ValidatedUpload upload = UploadValidator.validate(cleanName, cleanCategory,
+                            replacement.getOriginalFilename(), replacement.getContentType(),
+                            input.readNBytes(UploadValidator.MAX_BYTES + 1));
+                    jdbcTemplate.update("""
+                            UPDATE documents SET name = ?, category = ?, original_filename = ?,
+                                content_type = ?, size_bytes = ?, file_data = ? WHERE id = ?
+                            """, upload.name(), upload.category(), upload.filename(),
+                            upload.contentType(), upload.data().length, upload.data(), documentId);
+                } catch (IOException exception) {
+                    throw problem(400, "The replacement file could not be read.");
+                }
+            } else {
+                jdbcTemplate.update("UPDATE documents SET name = ?, category = ? WHERE id = ?",
+                        cleanName, cleanCategory, documentId);
+            }
+            auditService.recordSuccess(actor.id(), actor.email(), documentId, EventType.EDIT,
+                    replace ? "DOCUMENT_AND_FILE_UPDATED" : "DOCUMENT_METADATA_UPDATED");
+            return true;
+        });
+    }
+
+    public void delete(String email, long documentId) {
+        mutate(email, documentId, EventType.DELETE, actor -> {
+            // Permissions are removed by the FK cascade; audit rows deliberately have no FK.
+            jdbcTemplate.update("DELETE FROM documents WHERE id = ?", documentId);
+            auditService.recordSuccess(actor.id(), actor.email(), documentId,
+                    EventType.DELETE, "DOCUMENT_DELETED");
+            return true;
+        });
+    }
+
+    private void mutate(String email, long documentId, EventType type,
+            Function<Account, Boolean> action) {
+        try {
+            transactions.execute(status -> {
+                List<Account> accounts = jdbcTemplate.query("""
+                        SELECT id, email, role, enabled FROM app_users WHERE email = ? FOR SHARE
+                        """, (rs, row) -> new Account(rs.getLong("id"), rs.getString("email"),
+                        rs.getString("role"), rs.getBoolean("enabled")), email);
+                if (accounts.isEmpty() || !accounts.get(0).enabled()
+                        || !"OWNER".equals(accounts.get(0).role())) {
+                    throw problem(403, "An enabled OWNER account is required.");
+                }
+                Account actor = accounts.get(0);
+                // Shares/revocations also lock this row, so their commits cannot race the edit.
+                List<Long> owners = jdbcTemplate.query(
+                        "SELECT owner_id FROM documents WHERE id = ? FOR UPDATE",
+                        (rs, row) -> rs.getLong("owner_id"), documentId);
+                boolean allowed = !owners.isEmpty() && owners.get(0) == actor.id();
+                if (!allowed && !owners.isEmpty() && type == EventType.EDIT) {
+                    allowed = !jdbcTemplate.query("""
+                            SELECT permission FROM document_permissions
+                            WHERE document_id = ? AND user_id = ? AND permission = 'EDIT' FOR SHARE
+                            """, (rs, row) -> rs.getString(1), documentId, actor.id()).isEmpty();
+                }
+                if (!allowed) throw problem(404, "Document not found or access unavailable.");
+                return action.apply(actor);
+            });
+        } catch (ValidationException exception) {
+            auditService.recordFailure(null, email, documentId, type, "INVALID_DOCUMENT_INPUT");
+            throw problem(exception.status(), exception.getMessage());
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode().value() == 400) {
+                auditService.recordFailure(null, email, documentId, type, "INVALID_DOCUMENT_INPUT");
+            } else {
+                auditService.recordDenied(null, email, documentId, type, "NOT_FOUND_OR_NO_ACCESS");
+            }
+            throw exception;
+        }
     }
 
     private static ResponseStatusException problem(

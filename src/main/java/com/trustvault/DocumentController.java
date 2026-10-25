@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -67,6 +68,26 @@ public class DocumentController {
                 .cacheControl(CacheControl.noStore())
                 .body(documentService.list(authentication.getName()));
     }
+    @PostMapping(value = "/api/documents/{documentId}/edit",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> edit(Authentication authentication,
+            @PathVariable("documentId") long documentId,
+            @RequestParam(name = "name", required = false) String name,
+            @RequestParam(name = "category", required = false) String category,
+            @RequestParam(name = "file", required = false) MultipartFile file) {
+        documentService.edit(authentication.getName(), documentId, name, category, file);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(Map.of("message", "Document updated."));
+    }
+
+    @DeleteMapping("/api/documents/{documentId}")
+    public ResponseEntity<Map<String, String>> delete(Authentication authentication,
+            @PathVariable("documentId") long documentId) {
+        documentService.delete(authentication.getName(), documentId);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(Map.of("message", "Document deleted."));
+    }
+
     @GetMapping("/api/documents/{documentId}/download")
 public ResponseEntity<byte[]> download(
         Authentication authentication,

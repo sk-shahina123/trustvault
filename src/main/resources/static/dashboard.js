@@ -139,6 +139,14 @@ downloadLink.setAttribute(
 const downloadContainer = document.createElement("div");
 downloadContainer.appendChild(downloadLink);
 row.firstElementChild.appendChild(downloadContainer);
+if (currentAccount?.role === "OWNER" && ["OWNER", "EDIT"].includes(entry.accessLevel)) {
+    const editLink = document.createElement("a");
+    editLink.textContent = "Edit document";
+    editLink.href = "/edit.html?documentId=" + encodeURIComponent(String(entry.id));
+    const editContainer = document.createElement("div");
+    editContainer.appendChild(editLink);
+    row.firstElementChild.appendChild(editContainer);
+}
 if (entry.accessLevel === "OWNER" &&
         currentAccount?.role === "OWNER") {
 
@@ -169,6 +177,7 @@ async function loadAccount() {
             " | Role: " + currentAccount.role;
 
         const isOwner = currentAccount.role === "OWNER";
+        document.getElementById("auditLink").hidden = currentAccount.role !== "ADMIN";
 
         document.getElementById("uploadPanel").hidden = !isOwner;
 

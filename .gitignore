@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Local credentials and logs are never source code.
+.env
+.env.*
+*.log
+database-credential.xml
+__pycache__/

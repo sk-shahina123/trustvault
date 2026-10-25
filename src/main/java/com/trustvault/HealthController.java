@@ -18,4 +18,10 @@ public class HealthController {
         jdbcTemplate.queryForObject("SELECT 1", Integer.class);
         return "TrustVault backend and database are connected";
     }
+
+    @GetMapping("/healthz")
+    public String readiness() {
+        jdbcTemplate.queryForObject("SELECT 1", Integer.class);
+        return "OK";
+    }
 }

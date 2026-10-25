@@ -14,25 +14,66 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 
 @Configuration
 public class SecurityConfig {
 
     @Bean
-public SecurityFilterChain securityFilterChain(HttpSecurity http)
+public SecurityFilterChain securityFilterChain(HttpSecurity http, RequestAudit audit)
         throws Exception {
+
+    AccessDeniedHandler denied = (request, response, exception) -> {
+        boolean saved = audit.record(request, "DENIED",
+                exception instanceof CsrfException ? "CSRF_REJECTED" : "ROLE_REQUIRED");
+        response.setStatus(saved ? 403 : 503);
+        response.setHeader("Cache-Control", "no-store");
+        response.setContentType("application/json");
+        response.getWriter().write("{\"message\":\"Access unavailable. Refresh and sign in again.\"}");
+    };
+    AuthenticationEntryPoint entry = (request, response, exception) -> {
+        boolean saved = audit.record(request, "DENIED", "AUTHENTICATION_REQUIRED");
+        response.setHeader("Cache-Control", "no-store");
+        if (request.getRequestURI().startsWith("/api/")) {
+            response.setStatus(saved ? 401 : 503);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"message\":\"Please sign in.\"}");
+        } else {
+            response.sendRedirect("/login");
+        }
+    };
 
     http
             .authorizeHttpRequests(authorize -> authorize
-                    .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                    .requestMatchers("/healthz").permitAll()
+                    .requestMatchers("/api/admin/**", "/audit.html").hasRole("ADMIN")
                     .anyRequest().authenticated()
             )
-            .formLogin(Customizer.withDefaults())
-            .httpBasic(Customizer.withDefaults())
+            .exceptionHandling(errors -> errors
+                    .accessDeniedHandler(denied).authenticationEntryPoint(entry))
+            .formLogin(login -> login.permitAll())
+            .httpBasic(basic -> basic.authenticationEntryPoint(entry))
+            .headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives(
+                    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+                    + "img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")))
             .logout(Customizer.withDefaults());
 
     return http.build();
 }
+
+    @Bean
+    public WebSecurityCustomizer rejectedRequests(RequestAudit audit) {
+        return web -> web.requestRejectedHandler((request, response, exception) -> {
+            boolean saved = audit.record(request, "DENIED", "REQUEST_REJECTED");
+            response.setStatus(saved ? 400 : 503);
+            response.setHeader("Cache-Control", "no-store");
+            response.setContentType("application/json");
+            response.getWriter().write("{\"message\":\"Request rejected.\"}");
+        });
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {

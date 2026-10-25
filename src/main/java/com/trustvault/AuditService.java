@@ -10,10 +10,23 @@ public class AuditService {
 
     public enum EventType {
         UPLOAD, LIST, READ, DOWNLOAD, EDIT, DELETE,
-        GRANT, REVOKE, VIEW_AUDIT
+        GRANT, REVOKE, VIEW_AUDIT, ACCESS
     }
 
     private final JdbcTemplate jdbcTemplate;
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordRequest(
+            String actorEmail, Long documentId, EventType type,
+            String outcome, String reason, String method, String path) {
+        jdbcTemplate.update("""
+                INSERT INTO audit_events
+                    (actor_email, document_id, event_type, outcome, details)
+                VALUES (?, ?, ?, ?, JSON_OBJECT(
+                    'reason', ?, 'method', ?, 'path', ?))
+                """, actorEmail, documentId, type.name(), outcome,
+                reason, method, path);
+    }
 
     public AuditService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;

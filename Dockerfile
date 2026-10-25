@@ -5,6 +5,7 @@ WORKDIR /build
 COPY pom.xml .
 COPY src ./src
 
+# Integration tests run against isolated MySQL in CI, before deployment.
 RUN mvn -B -ntp -DskipTests clean package
 
 # Run the packaged application
@@ -19,7 +20,7 @@ COPY --from=build --chown=trustvault:trustvault /build/target/*.jar ./app.jar
 COPY --chown=trustvault:trustvault certs/aiven-truststore.p12 ./certs/aiven-truststore.p12
 
 ENV PORT=10000 \
-    SPRING_PROFILES_ACTIVE=cloud
+    SPRING_PROFILES_ACTIVE=cloud,hosted
 
 USER trustvault
 EXPOSE 10000

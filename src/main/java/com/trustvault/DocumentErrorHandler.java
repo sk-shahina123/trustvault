@@ -1,6 +1,5 @@
 package com.trustvault;
 
-import java.security.Principal;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,7 +16,11 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.trustvault.AuditService.EventType;
+import org.springframework.web.bind.ServletRequestBindingException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class DocumentErrorHandler {
@@ -25,10 +28,10 @@ public class DocumentErrorHandler {
     private static final Logger logger =
             LoggerFactory.getLogger(DocumentErrorHandler.class);
 
-    private final AuditService auditService;
+    private final RequestAudit requestAudit;
 
-    public DocumentErrorHandler(AuditService auditService) {
-        this.auditService = auditService;
+    public DocumentErrorHandler(RequestAudit requestAudit) {
+        this.requestAudit = requestAudit;
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -92,38 +95,32 @@ public class DocumentErrorHandler {
 
     private void recordFrameworkFailure(
             HttpServletRequest request, String reason) {
+        requestAudit.record(request, "FAILURE", reason);
+    }
 
-        if (!"/api/documents".equals(request.getServletPath())) {
-            return;
-        }
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class,
+            ServletRequestBindingException.class})
+    public ResponseEntity<Map<String, String>> invalidParameters(HttpServletRequest request) {
+        recordFrameworkFailure(request, "INVALID_REQUEST_PARAMETERS");
+        return response(400, "Invalid request parameters.");
+    }
 
-        EventType type;
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, String>> wrongMethod(HttpServletRequest request) {
+        recordFrameworkFailure(request, "METHOD_NOT_ALLOWED");
+        return response(405, "This request method is unavailable.");
+    }
 
-        if ("POST".equals(request.getMethod())) {
-            type = EventType.UPLOAD;
-        } else if ("GET".equals(request.getMethod())) {
-            type = EventType.LIST;
-        } else {
-            return;
-        }
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<Map<String, String>> wrongType(HttpServletRequest request) {
+        recordFrameworkFailure(request, "UNSUPPORTED_CONTENT_TYPE");
+        return response(415, "Unsupported request content type.");
+    }
 
-        Principal principal = request.getUserPrincipal();
-        String email = principal == null
-                ? null
-                : principal.getName();
-
-        try {
-            // Parsing may fail before an account ID can be resolved.
-            auditService.recordFailure(
-                    null, email, null, type, reason);
-
-        } catch (RuntimeException exception) {
-            // A database outage may also prevent saving the audit entry.
-            // The original request still fails.
-            logger.error(
-                    "Could not persist the failed request's audit entry",
-                    exception);
-        }
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, String>> missing(HttpServletRequest request) {
+        requestAudit.record(request, "DENIED", "ROUTE_UNAVAILABLE");
+        return response(404, "Resource not found or access unavailable.");
     }
 
     private static ResponseEntity<Map<String, String>> response(

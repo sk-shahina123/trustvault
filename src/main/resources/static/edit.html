@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Edit document | TrustVault</title>
+    <link rel="stylesheet" href="/security-pages.css"><script src="/edit.js" defer></script>
+</head><body><main>
+    <nav><a href="/">Documents</a> · <a href="/logout">Sign out</a></nav>
+    <h1>Edit document</h1>
+    <p>You need ownership or an EDIT grant. Only the document's owner can delete it.</p>
+    <form id="editForm"><fieldset id="editFields" disabled>
+        <label for="name">Name</label><input id="name" name="name" maxlength="255" required>
+        <label for="category">Category</label><input id="category" name="category" maxlength="100" required>
+        <label for="file">Replace file (optional, PDF or UTF-8 text, up to 5 MiB)</label>
+        <input id="file" name="file" type="file" accept=".pdf,.txt">
+        <button type="submit">Save changes</button>
+        <button type="button" id="delete" class="danger" hidden>Delete document</button>
+    </fieldset></form><p id="status" role="status">Loading…</p>
+</main></body></html>
