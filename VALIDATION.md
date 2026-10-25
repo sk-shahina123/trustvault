@@ -34,3 +34,14 @@ Logout repair: `mvn -DskipTests test-compile` passed. A session/CSRF regression 
 - Initial full run found one test expectation issue: no-Accept logout returns 204 rather than a browser redirect. Corrected the HTML test to request text/html and added a separate JSON 204/session-invalidation test. No live logout behavior was changed.
 - Dashboard/edit JavaScript syntax checks passed. No new interactive browser acceptance check was performed for the search UI.
 - No Aiven grant was applied; no remote main branch update or Render deployment was performed. Production deletion remains pending separately approved application of the scoped grant and a live recheck.
+
+## Approved live rollout and acceptance — 25 October 2026
+
+The author explicitly approved upgrading the existing submitted URL, pushed bc4a36c to main, and supplied Aiven output showing document UPDATE/DELETE grants, while audit_events retained only the existing schema SELECT/INSERT access. Render deploy dep-dbev180n74is73cofc2g reached live at 12:07:50 UTC.
+
+- Original live security check: PASS on synthetic document 4, including upload, private download, role restrictions, CSRF refusal, READ sharing, same-session revocation, owner deletion, and retained success/denial audit records. Document 4 was deleted by the check.
+- Search visibility: combined name/owner/category/date filters returned only the owner’s synthetic document 5; ADMIN and ungranted VIEWER saw no match. READ sharing made it visible to VIEWER; revocation removed it. Invalid date returned 400.
+- A SQL-like query probe received 403 rather than the empty list expected by the ad-hoc harness; that harness stopped and cleaned document 5. This was not recorded as a full pass. No attempt was made to bypass the refusal. Literal SQL/wildcard handling is covered by the real-MySQL integration suite.
+- Positive search/edit/delete acceptance: PASS on synthetic document 6. All filters matched; ADMIN could not see it; owner edit returned 200; old-name search stopped matching; new-name search and protected metadata reflected the edit. Owner deletion returned 200; download returned 404; search no longer returned the deleted file. Admin audit API returned successful UPLOAD, EDIT and DELETE events.
+- Earlier synthetic document 3 was downloaded to confirm its test marker and then deleted successfully. No real user document was modified.
+- Current feature implementation no longer has the previously reported search/deletion gap. Earlier pending notes describe historical checkpoints.

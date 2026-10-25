@@ -144,3 +144,12 @@
 - Verification: 49 integration tests passed against isolated MySQL 8.4.7, including search leakage prevention, scoped-grant repair, audit rollback/protection, registration, and logout. JS syntax checks passed. Search browser QA and live deletion verification remain pending approved rollout.
 - Submission protection: No remote main mutation, Aiven privilege change or Render deploy was performed for this update.
 - Commit: See the search-and-deletion improvement commit; no GitHub commit URL exists until this separate branch is published.
+
+## 2026-10-25 - Approved rollout and live acceptance
+
+- Request: Update the existing live website with the tested remaining functionality, keeping the same URL.
+- Action: The author pushed bc4a36c and ran the explicitly cloud-targeted scoped grant command; Render deploy dep-dbev180n74is73cofc2g reached live.
+- Verification: The original live security check passed, including successful owner deletion and audit evidence. Additional live checks passed combined search, access-restricted results, sharing/revocation visibility, editing, deletion and audit records. Only synthetic test documents were changed/cleaned up.
+- Test correction: An ad-hoc live SQL-like search probe received 403, while the harness expected an empty list. Its test file was cleaned up, the refusal was not bypassed, and positive acceptance checks were rerun separately. SQL-like literal handling remains covered in isolated MySQL tests.
+- Documentation correction: Removed obsolete frozen-branch and incomplete-search/deletion statements after the approved deployment.
+- Runtime commit: https://github.com/sk-shahina123/trustvault/commit/bc4a36cb80c676bc97a0dbecaacd222fe4ab8521
