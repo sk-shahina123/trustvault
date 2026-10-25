@@ -24,3 +24,7 @@ Scope: a small synthetic-data demonstration, not a production document system. H
 An audit DOWNLOAD/SUCCESS means the server authorized and prepared the response after committing its audit record. It does not prove that the client received every byte, opened the file, or read its contents. HEAD requests may record authorization without transmitting the body.
 
 Keep testing and deployment claims separate. `VALIDATION.md` records what was actually run. The live checklist/script must pass on the submitted URL, and the app/database must remain available for judging. A transient tunnel or successful local build is not evidence of reliable hosting.
+
+## Public registration boundary
+
+The role is fixed server-side to OWNER; public registration cannot create ADMIN or inherit document grants. Accounts and their audit record are transactional. Password validation precedes BCrypt hashing; duplicate emails do not replace an account. Registration uses CSRF, no-store responses, parameterized SQL, and bounded process-local signup throttling. Accepted limitations: no email verification (an address is an identifier, not proof of ownership), no distributed throttling, no storage quotas, and duplicate-address responses can reveal account existence. Use synthetic data. Newly registered users cannot review audit metadata; that remains administrator-only.

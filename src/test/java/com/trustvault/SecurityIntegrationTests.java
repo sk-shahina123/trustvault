@@ -111,6 +111,59 @@ class SecurityIntegrationTests {
     }
     private void rejectAudit() { root.execute("CREATE TRIGGER reject_audit_for_test BEFORE INSERT ON audit_events FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Intentional audit failure in isolated test'"); }
 
+    @Test void loginPageRendersWithCsrfAndRegistrationLink() throws Exception {
+        mvc.perform(get("/login").accept("text/html")).andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"_csrf\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("href=\"/register\"")));
+    }
+
+    @Test void registrationPageRendersWithoutAuthentication() throws Exception {
+        mvc.perform(get("/register").accept("text/html")).andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"_csrf\"")));
+    }
+
+    @Test void registrationCannotChooseAdminAndCannotAccessExistingDocuments() throws Exception {
+        mvc.perform(post("/register").with(csrf()).contentType("application/x-www-form-urlencoded")
+                .param("email","NEW@test.invalid").param("password",PASSWORD).param("confirmPassword",PASSWORD)
+                .param("role","ADMIN")).andExpect(status().isSeeOther()).andExpect(header().string("Location","/login?registered"));
+        assertThat(app.queryForObject("SELECT role FROM app_users WHERE email='new@test.invalid'",String.class)).isEqualTo("OWNER");
+        String hash=app.queryForObject("SELECT password_hash FROM app_users WHERE email='new@test.invalid'",String.class);
+        assertThat(new BCryptPasswordEncoder().matches(PASSWORD,hash)).isTrue();
+        MockHttpSession session=login("new@test.invalid");
+        mvc.perform(get("/api/documents/1/download").session(session)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/admin/audit-events").session(session)).andExpect(status().isForbidden());
+        mvc.perform(multipart("/api/documents").file(file()).param("name","My new file").param("category","Reports")
+                .session(session).with(csrf())).andExpect(status().isCreated());
+        audit("REGISTER","SUCCESS");
+    }
+
+    @Test void registrationRequiresCsrf() throws Exception {
+        mvc.perform(post("/register").contentType("application/x-www-form-urlencoded")
+                .param("email","blocked@test.invalid").param("password",PASSWORD).param("confirmPassword",PASSWORD))
+                .andExpect(status().isForbidden());
+        assertThat(count("app_users")).isEqualTo(4);
+    }
+
+    @Test void registrationRejectsDuplicateWeakAndMismatchedCredentials() throws Exception {
+        mvc.perform(post("/register").with(csrf()).contentType("application/x-www-form-urlencoded")
+                .param("email",OWNER).param("password",PASSWORD).param("confirmPassword",PASSWORD))
+                .andExpect(status().isConflict());
+        for (String password : new String[]{"short", "a".repeat(73), PASSWORD}) {
+            mvc.perform(post("/register").with(csrf()).contentType("application/x-www-form-urlencoded")
+                    .param("email","rejected@test.invalid").param("password",password).param("confirmPassword","different"))
+                    .andExpect(status().isBadRequest());
+        }
+        assertThat(count("app_users")).isEqualTo(4);
+    }
+
+    @Test void registrationRollsBackIfAuditWriteFails() throws Exception {
+        rejectAudit();
+        mvc.perform(post("/register").with(csrf()).contentType("application/x-www-form-urlencoded")
+                .param("email","rollback@test.invalid").param("password",PASSWORD).param("confirmPassword",PASSWORD))
+                .andExpect(status().isServiceUnavailable());
+        assertThat(count("app_users")).isEqualTo(4);
+    }
+
     @Test void realDatabaseLoginWorksAndWrongPasswordFails() throws Exception {
         login(OWNER);
         mvc.perform(formLogin().user(OWNER).password("wrong")).andExpect(unauthenticated());

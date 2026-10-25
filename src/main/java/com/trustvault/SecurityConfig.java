@@ -48,7 +48,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, RequestAudit a
 
     http
             .authorizeHttpRequests(authorize -> authorize
-                    .requestMatchers("/healthz").permitAll()
+                    .requestMatchers("/healthz", "/register").permitAll()
                     .requestMatchers("/api/admin/**", "/audit.html").hasRole("ADMIN")
                     .anyRequest().authenticated()
             )

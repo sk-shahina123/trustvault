@@ -10,7 +10,7 @@ public class AuditService {
 
     public enum EventType {
         UPLOAD, LIST, READ, DOWNLOAD, EDIT, DELETE,
-        GRANT, REVOKE, VIEW_AUDIT, ACCESS
+        GRANT, REVOKE, VIEW_AUDIT, ACCESS, REGISTER
     }
 
     private final JdbcTemplate jdbcTemplate;

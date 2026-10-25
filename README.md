@@ -2,7 +2,7 @@
 
 A Spring Boot document vault with server-enforced per-document permissions and an audit trail. Java 17, Spring Security, JDBC, MySQL 8, and same-origin HTML/CSS/JavaScript.
 
-**Deployment status:** hosting configuration is prepared. A verified public URL has not yet been recorded here. Do not treat a successful local build as a successful deployment.
+**Live URL:** https://trustvault-shahina.onrender.com — Render deployment confirmed; final end-to-end acceptance testing is still pending.
 
 ## Demo accounts
 
@@ -80,3 +80,9 @@ Implemented: authentication, upload validation, filtered listing, download autho
 Not complete: search by name/owner/category/date (the current search controls remain disabled), public deployment verification, the five-minute submission recording, and any additional product polish. No antivirus, file-version history, recovery, per-user storage quota, MFA or comprehensive rate limiting is implemented. See `THREATS.md` for the accepted boundaries. Do not upload real confidential data to a deployment with public demo credentials.
 
 API policy: `API.md`. Security analysis: `THREATS.md`. AI assistance history: `PROMPTS.md`.
+
+## Self-registration
+
+Open `/register` or use **Create an account** on the login page. New accounts always have OWNER role: they can upload and manage their own private documents and receive explicit grants. Public registration never creates an administrator. Sign in after registering; no email ownership verification is performed, so only use synthetic demo information. Passwords require at least 12 characters and at most 72 UTF-8 bytes and are hashed with BCrypt. CSRF tokens are required. Account creation and its REGISTER audit record commit together. Duplicate addresses are refused without changing the existing account.
+
+Signup is limited to 10 attempts per client address per hour and 100 attempts per process per hour. This in-memory control resets on restart and is not distributed; shared networks may reach the limit. Email verification, account recovery, and storage quotas remain out of scope. Audit review remains ADMIN-only.

@@ -31,7 +31,7 @@ public class LoginController {
                 <label for="username">Email</label><input id="username" name="username" type="email" autocomplete="username" required>
                 <label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required>
                 <input type="hidden" name="%s" value="%s">
-                <button type="submit">Sign in</button></form></main></body></html>
+                <button type="submit">Sign in</button></form><p><a href="/register">Create an account</a></p></main></body></html>
                 """.formatted(error, HtmlUtils.htmlEscape(csrf.getParameterName()),
                         HtmlUtils.htmlEscape(csrf.getToken()));
     }

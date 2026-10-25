@@ -15,3 +15,9 @@ Pending: GitHub Actions execution on the published change, Docker image build on
 ## Earlier manual Aiven evidence
 
 For document 2, user-supplied audit rows showed GRANT/SUCCESS (24), viewer DOWNLOAD/SUCCESS (27), REVOKE/SUCCESS (28), and viewer DOWNLOAD/DENIED (31). The viewer remained logged in and reused the old download URL after revocation. These were manual checks of the earlier implementation, separate from the new automated tests.
+
+## Registration update
+
+`mvn -DskipTests test-compile` completed successfully for the registration update on 25 October 2026. Six new test methods compile, but have not yet run against isolated MySQL in this session. Do not add them to the previous 34-pass count.
+
+Live deployed commit cfb648a passed all three demo logins, upload, safe download headers, CSRF rejection, unauthorized access, sharing, READ edit/delete denial, admin audit denial for viewer, and same-session revocation. The script stopped at owner deletion: Aiven reported `SELECT with locking clause command denied` on `documents`. Apply database/005_grant_document_management.sql as the cloud administrator and rerun. Synthetic test document ID 3 needs cleanup after that grant. Admin audit contents and successful owner deletion are not yet verified by the full live script.

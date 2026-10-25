@@ -24,3 +24,8 @@ Except `/healthz` and the login flow, endpoints require authentication. Browser 
 Responses containing document data and audit data use `Cache-Control: no-store`. Downloads force attachment disposition and `X-Content-Type-Options: nosniff`. Missing documents and inaccessible documents have the same download response. API authentication failures return 401 JSON. Forbidden roles or missing CSRF return 403; malformed requests return controlled 400/405/415 responses; database/audit outages return 503 without file bytes.
 
 The static pages do not authorize actions: the backend repeats the decision for every operation. All document writes and their successful audit entries share one transaction. Rejections are recorded independently so rollback cannot erase them. Framework/security failures record the authenticated identity when one has actually been established; otherwise actor identity is null. Request audit does not store passwords, tokens, request bodies or query strings.
+
+## Registration
+
+- `GET /register`: public HTML form with CSRF token.
+- `POST /register`: public, CSRF-protected form (`email`, `password`, `confirmPassword`). The server fixes role to OWNER and ignores any client role field. Success: 303 to `/login?registered`; validation: 400; duplicate email: 409; signup limit: 429; database/audit failure: 503.

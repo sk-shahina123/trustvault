@@ -117,3 +117,12 @@
 - Delivery blockers: The GitHub integration returned 403 Resource not accessible by integration when publishing was attempted. No remote commit was created by that request. Render is connected but requires the user to confirm its workspace before operations. A Git bundle provides the tested commits for import through the existing authenticated local Git setup.
 - Evidence limits: Live HTTPS testing and a Docker build on the host are still pending. Local tests do not prove a public deployment. Search filters and the submission video remain unfinished and are explicitly listed in README.md.
 - Security implementation commit: https://github.com/sk-shahina123/trustvault/commit/124973b500d9dd2e41366370119f92d2229dae64 (available on GitHub after the bundle is pushed).
+
+## 2026-10-25 - Public registration and live login regression
+
+- Request: Add registration so new testers can upload private files; retain admin-only audit review.
+- Produced: CSRF-protected public signup, fixed OWNER role, BCrypt validation, account/audit transaction, signup throttling, and six regression/security test methods.
+- AI error: The explicit login page used Java formatting with an unescaped CSS percent sign; the earlier integration suite tested login submission but did not render the login page. The live check exposed the defect.
+- Correction: Escaped the CSS percent sign in commit cfb648a and added GET /login regression coverage in this update. HTML login requests in the live script explicitly request text/html.
+- Registration checks cover role spoofing, cross-user access, upload, admin-audit denial, CSRF, duplicates, weak/mismatched passwords, and rollback if audit fails. These new tests must not be described as passed until executed.
+- Fix commit: see the registration release commit in Git history.
