@@ -11,8 +11,9 @@
   the UI button retrieved it, and signing in opened the UI.
 - Remaining work: Named role accounts, document management,
   document permissions, audit logging, and deployment.
+- Code commit: https://github.com/sk-shahina123/trustvault/commit/75017e66e30124760884ae23c2f809d6f94ccaf1
 
-  ## 2026-10-21 — MySQL accounts and database-backed login
+## 2026-10-21 — MySQL accounts and database-backed login
 
 - Prompt summary: Create admin, owner, and viewer accounts in MySQL
   and connect Spring Security login to them.
@@ -26,7 +27,7 @@
   successfully queried MySQL.
 - Findings: No authentication bug was identified by these checks.
   Disabled-account behavior and document authorization still need tests.
-- Code commit: Add the actual commit link after publishing.@'
+- Code commit: https://github.com/sk-shahina123/trustvault/commit/835efe0d894553cbd92cfc670110f8fe984b941e
 
 ## 2026-10-21 — Display the signed-in account
 - Request: Continue building the interface alongside the backend.
@@ -38,7 +39,7 @@
   sign-out worked.
 - Remaining verification: HTTP error and expired-session handling
   need dedicated checks.
-- Code commit: Pending.
+- Code commit: https://github.com/sk-shahina123/trustvault/commit/858c313489aa952a80f60e22ceada5c2e368dce7
 
 ## 2026-10-21 — Restrict an endpoint to ADMIN
 - Request: Add backend authorization and check access with all three roles.
@@ -53,7 +54,7 @@
   record denied requests in an audit log.
 - Remaining work: Automated authorization tests, document permissions,
   and audit recording.
-- Code commit: Pending.
+- Code commit: https://github.com/sk-shahina123/trustvault/commit/858c313489aa952a80f60e22ceada5c2e368dce7
 
 ## 2026-10-22 — Document upload, listing, and audit logging
 
@@ -65,7 +66,7 @@
 - Verified: MySQL recorded the VIEWER attempt as UPLOAD/DENIED with reason OWNER_ROLE_REQUIRED. No document named "Viewer denied upload test" was created.
 - Verification pending: Capture the direct request's HTTP 403/PASS output. Complete automated authorization, revocation, and transaction-rollback tests.
 - Troubleshooting: Resolved database authentication failure by resetting the trustvault_app password through the MySQL administrator account and supplying it through TRUSTVAULT_DB_PASSWORD.
-- Commit: Pending.
+- Commit: https://github.com/sk-shahina123/trustvault/commit/09f6d3e80c163cfb70366d63e3c7a3edfde3d9af
 
 ## 23 October 2026 — Cloud database connection
 
@@ -75,6 +76,8 @@
 - Fix: Verified the cloud account and updated the application environment with the working password.
 - Validation: Spring Boot connected to Aiven, created the demo accounts, and admin, owner, and viewer logins worked.
 - Public application deployment is still pending.
+- Code commit: https://github.com/sk-shahina123/trustvault/commit/c69c1e9b614cf4de9e626fb7bc35f2001badfbd4
+
 ## 2026-10-24 — Downloads and cloud login troubleshooting
 
 - Prompt: "invalid credentials".
@@ -85,6 +88,8 @@
 - Manual verification: The viewer's direct download request returned "Document not found or access unavailable". SQL checks confirmed owner SUCCESS and viewer DENIED download audit records.
 - Lesson: Successful Spring Boot startup alone does not establish that database authentication works.
 - Pending: Automated permission and audit tests.
+- Code commit: https://github.com/sk-shahina123/trustvault/commit/b62b6843268a2481cfe25433518902dd04892688
+
 ## 2026-10-25 - Authentication recovery and sharing verification
 
 - Prompt/task summary: Resolve invalid credentials after application startup, then continue sharing and revocation verification.
@@ -95,4 +100,20 @@
 - Manual sharing evidence for document 2: audit 24 GRANT SUCCESS; audit 27 viewer DOWNLOAD SUCCESS; audit 28 REVOKE SUCCESS; audit 31 viewer DOWNLOAD DENIED.
 - Revocation check: The viewer remained signed in, the document disappeared after refresh, and the previously copied download URL was denied.
 - Limits: These are manual checks. Automated negative tests, document editing/deletion, and deployment remain pending.
-- Commit link: Add the actual GitHub commit URL after pushing.
+- Commit link: https://github.com/sk-shahina123/trustvault/commit/0967c448e32452189327f931df77598f2710e36a
+
+
+## 2026-10-25 — Security review, audit screen and deployment preparation
+
+- Prompt/task summary: Prioritize the required audit trail, important security behavior, live testing and a project the author can explain. Review the repository and the supplied edit-review file, then finish the essential work.
+- Source check: All eleven supplied source files matched repository commit 0967c44. The review and changes were made against that actual repository baseline.
+- Finding and fix: Earlier service-level audit calls did not cover requests rejected by Spring Security before a controller was reached. Added request auditing for authentication, role, CSRF and firewall rejections, plus controlled API errors. The requests stay blocked if logging fails.
+- Finding and fix: EDIT permission existed but had no editing operation. Added server-authorized metadata/file edits, owner-only deletion, matching UI, transactional success auditing and the narrowly scoped database grant. Ownership cannot be changed by submitted fields.
+- Finding and fix: Audit rows existed but an administrator could not review them through the application. Added an administrator audit API and screen, with a fresh database check of the enabled ADMIN role. ADMIN has no implicit document-content access.
+- Review: Success audits commit with document/permission changes. Denied/failure events use independent transactions. Runtime database privileges prevent audit UPDATE/DELETE/TRUNCATE. This is not tamper-proof against a database administrator or a compromised server that can insert false events; THREATS.md states those boundaries.
+- Verification: 34 integration tests passed against isolated MySQL 8.4.7 using real Spring Security filters, services and a restricted database account. No production credentials or data were used. The suite covers other-owner access, role restrictions, current-session revocation, forged parameters, CSRF, audit authorization and rollback when audit insertion fails.
+- Test quality check: In a separate copy, deliberately replacing the download ownership condition with an always-true condition made the cross-owner test fail: expected 404, received 200. The release code retains the real authorization condition.
+- Deployment preparation: Added HTTPS cookie/proxy settings in a separate hosted profile, health checking, CI, deployment instructions and a script to exercise a live HTTPS site using one synthetic document. Local HTTP use keeps the cloud profile without hosted.
+- Delivery blockers: The GitHub integration returned 403 Resource not accessible by integration when publishing was attempted. No remote commit was created by that request. Render is connected but requires the user to confirm its workspace before operations. A Git bundle provides the tested commits for import through the existing authenticated local Git setup.
+- Evidence limits: Live HTTPS testing and a Docker build on the host are still pending. Local tests do not prove a public deployment. Search filters and the submission video remain unfinished and are explicitly listed in README.md.
+- Security implementation commit: https://github.com/sk-shahina123/trustvault/commit/124973b500d9dd2e41366370119f92d2229dae64 (available on GitHub after the bundle is pushed).
