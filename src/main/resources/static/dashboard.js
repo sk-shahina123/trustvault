@@ -11,6 +11,10 @@ const documentsBody = document.getElementById("documentsBody");
 const maxFileBytes = 5 * 1024 * 1024;
 
 let currentAccount = null;
+let documentLoadVersion = 0;
+const searchForm = document.getElementById("searchForm");
+const searchFields = document.getElementById("searchFields");
+const searchStatus = document.getElementById("searchStatus");
 
 async function apiRequest(
     url,
@@ -92,10 +96,18 @@ function showTableMessage(message) {
 }
 
 async function loadDocuments() {
+    const version = ++documentLoadVersion;
     showTableMessage("Loading documents...");
+    searchStatus.textContent = "Searching...";
 
     try {
-        const documents = await apiRequest("/api/documents");
+        const parameters = new URLSearchParams();
+        for (const [key, value] of new FormData(searchForm)) {
+            if (String(value).trim()) parameters.set(key, String(value).trim());
+        }
+        const query = parameters.toString();
+        const documents = await apiRequest("/api/documents" + (query ? "?" + query : ""));
+        if (version !== documentLoadVersion) return;
 
         if (!Array.isArray(documents)) {
             throw new Error(
@@ -103,8 +115,9 @@ async function loadDocuments() {
             );
         }
 
+        searchStatus.textContent = documents.length + " matching documents shown (up to the newest 100).";
         if (documents.length === 0) {
-            showTableMessage("No documents available to your account.");
+            showTableMessage("No accessible documents match these filters.");
             return;
         }
 
@@ -164,6 +177,8 @@ if (entry.accessLevel === "OWNER" &&
 
         documentsBody.replaceChildren(...rows);
     } catch (error) {
+        if (version !== documentLoadVersion) return;
+        searchStatus.textContent = "Search could not be completed.";
         showTableMessage(error.message);
     }
 }
@@ -185,6 +200,7 @@ async function loadAccount() {
             .classList.toggle("single-column", !isOwner);
 
         uploadFields.disabled = !isOwner;
+        searchFields.disabled = false;
 
         uploadMessage.textContent = isOwner
             ? "Choose a PDF or UTF-8 text file to upload."
@@ -194,8 +210,24 @@ async function loadAccount() {
     } catch (error) {
         accountMessage.textContent = error.message;
         uploadFields.disabled = true;
+        searchFields.disabled = true;
     }
 }
+
+searchForm.addEventListener("submit", event => {
+    event.preventDefault();
+    const from = document.getElementById("searchFrom").value;
+    const to = document.getElementById("searchTo").value;
+    if (from && to && from > to) {
+        searchStatus.textContent = "The start date must not be after the end date.";
+        return;
+    }
+    loadDocuments();
+});
+document.getElementById("clearSearch").addEventListener("click", () => {
+    searchForm.reset();
+    loadDocuments();
+});
 
 uploadForm.addEventListener("submit", async function (event) {
     event.preventDefault();

@@ -118,9 +118,17 @@ class SecurityIntegrationTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"_csrf\"")));
         mvc.perform(post("/logout").session(session)).andExpect(status().isForbidden());
         mvc.perform(get("/api/me").session(session)).andExpect(status().isOk());
-        mvc.perform(post("/logout").session(session).with(csrf()))
+        mvc.perform(post("/logout").session(session).with(csrf()).accept("text/html"))
                 .andExpect(status().isFound()).andExpect(redirectedUrl("/login?logout"))
                 .andExpect(unauthenticated());
+        assertThat(session.isInvalid()).isTrue();
+        mvc.perform(get("/api/me")).andExpect(status().isUnauthorized());
+    }
+
+    @Test void apiLogoutAlsoInvalidatesTheSessionWithoutAnHtmlRedirect() throws Exception {
+        MockHttpSession session=login(OWNER);
+        mvc.perform(post("/logout").session(session).with(csrf()).accept("application/json"))
+                .andExpect(status().isNoContent()).andExpect(unauthenticated());
         assertThat(session.isInvalid()).isTrue();
         mvc.perform(get("/api/me")).andExpect(status().isUnauthorized());
     }
@@ -360,4 +368,92 @@ class SecurityIntegrationTests {
         mvc.perform(get("/healthz")).andExpect(status().isOk()).andExpect(content().string("OK"));
         mvc.perform(get("/application-cloud.properties").with(user(VIEWER).roles("VIEWER"))).andExpect(status().isNotFound());
     }
+    @Test void combinedSearchIsCaseInsensitiveAndLimitedToOwnedDocuments() throws Exception {
+        root.update("UPDATE documents SET name='Annual Finance', category='Reports', created_at='2026-10-25 23:59:59.999999'");
+        mvc.perform(get("/api/documents").param("name","ANNUAL").param("owner","OWNER@")
+                .param("category","reports").param("dateFrom","2026-10-25").param("dateTo","2026-10-25")
+                .with(user(OWNER).roles("OWNER"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(1));
+        mvc.perform(get("/api/documents").param("name","Annual").param("owner","other@")
+                .with(user(OWNER).roles("OWNER"))).andExpect(status().isOk()).andExpect(content().json("[]"));
+        mvc.perform(get("/api/documents").param("name","Annual").with(user(ADMIN).roles("ADMIN")))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
+    }
+
+    @Test void searchFiltersApplyToOwnersAsWellAsSharedDocuments() throws Exception {
+        mvc.perform(get("/api/documents").param("name","Other")
+                .with(user(OWNER).roles("OWNER"))).andExpect(status().isOk()).andExpect(content().json("[]"));
+        share(VIEWER,"READ");
+        mvc.perform(get("/api/documents").param("owner","owner@").param("name","private")
+                .with(user(VIEWER).roles("VIEWER"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(delete("/api/documents/1/permissions/3").with(user(OWNER).roles("OWNER")).with(csrf()))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/documents").param("name","private").with(user(VIEWER).roles("VIEWER")))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
+    }
+
+    @Test void searchTreatsWildcardsAndSqlAsLiteralText() throws Exception {
+        root.update("UPDATE documents SET name='Budget 100%_final' WHERE id=1");
+        mvc.perform(get("/api/documents").param("name","%_").with(user(OWNER).roles("OWNER")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(get("/api/documents").param("name","' OR 1=1 --").with(user(OWNER).roles("OWNER")))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
+        mvc.perform(get("/api/documents").param("name","%_").with(user(OTHER).roles("OWNER")))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
+    }
+
+    @Test void searchDateBoundsAreInclusiveAndCanBeUsedIndependently() throws Exception {
+        root.update("UPDATE documents SET created_at='2026-10-25 00:00:00' WHERE id=1");
+        mvc.perform(get("/api/documents").param("dateFrom","2026-10-25").param("dateTo","2026-10-25")
+                .with(user(OWNER).roles("OWNER"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(get("/api/documents").param("dateFrom","2026-10-26").with(user(OWNER).roles("OWNER")))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
+        mvc.perform(get("/api/documents").param("dateTo","2026-10-24").with(user(OWNER).roles("OWNER")))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
+    }
+
+    @Test void invalidSearchFiltersReturnControlledErrorsAndAudit() throws Exception {
+        for (String invalid : new String[]{"2026-02-30", "tomorrow", "2026-1-01", "0001-01-01"}) {
+            mvc.perform(get("/api/documents").param("dateFrom",invalid).with(user(OWNER).roles("OWNER")))
+                    .andExpect(status().isBadRequest());
+        }
+        mvc.perform(get("/api/documents").param("dateFrom","2026-10-26").param("dateTo","2026-10-25")
+                .with(user(OWNER).roles("OWNER"))).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/documents").param("name","x".repeat(256)).with(user(OWNER).roles("OWNER")))
+                .andExpect(status().isBadRequest());
+        audit("LIST","FAILURE");
+    }
+
+    @Test void searchFindsOlderDocumentsBeforeApplyingResultLimitAndDetailsStayAccessible() throws Exception {
+        root.update("UPDATE documents SET created_at='2025-01-01 00:00:00' WHERE id=1");
+        for (int i=3;i<=104;i++) document(i,1,"Newer "+i,"new");
+        mvc.perform(get("/api/documents").with(user(OWNER).roles("OWNER")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(100));
+        mvc.perform(get("/api/documents").param("name","Owner private document").with(user(OWNER).roles("OWNER")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(1));
+        mvc.perform(get("/api/documents/1").with(user(OWNER).roles("OWNER")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(1));
+        mvc.perform(get("/api/documents/1").with(user(OTHER).roles("OWNER"))).andExpect(status().isNotFound());
+    }
+
+    @Test void scopedDocumentGrantFixesLockingAndDeletionWithoutWeakeningAuditProtection() throws Exception {
+        root.execute("REVOKE UPDATE, DELETE ON trustvault_security_test.documents FROM 'trustvault_test'@'%'");
+        try {
+            mvc.perform(delete("/api/documents/1").with(user(OWNER).roles("OWNER")).with(csrf()))
+                    .andExpect(status().isServiceUnavailable());
+            assertThat(count("documents")).isEqualTo(2);
+        } finally {
+            root.execute("GRANT UPDATE, DELETE ON trustvault_security_test.documents TO 'trustvault_test'@'%'");
+        }
+        share(VIEWER,"READ");
+        mvc.perform(delete("/api/documents/1").with(user(OTHER).roles("OWNER")).with(csrf()))
+                .andExpect(status().isNotFound());
+        mvc.perform(delete("/api/documents/1").with(user(OWNER).roles("OWNER")).with(csrf()))
+                .andExpect(status().isOk());
+        assertThat(count("documents")).isEqualTo(1);
+        assertThat(count("document_permissions")).isZero();
+        audit("DELETE","SUCCESS");
+        assertThatThrownBy(() -> app.update("DELETE FROM audit_events WHERE 1=0")).isInstanceOf(DataAccessException.class);
+    }
+
 }

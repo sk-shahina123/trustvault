@@ -28,3 +28,9 @@ Keep testing and deployment claims separate. `VALIDATION.md` records what was ac
 ## Public registration boundary
 
 The role is fixed server-side to OWNER; public registration cannot create ADMIN or inherit document grants. Accounts and their audit record are transactional. Password validation precedes BCrypt hashing; duplicate emails do not replace an account. Registration uses CSRF, no-store responses, parameterized SQL, and bounded process-local signup throttling. Accepted limitations: no email verification (an address is an identifier, not proof of ownership), no distributed throttling, no storage quotas, and duplicate-address responses can reveal account existence. Use synthetic data. Newly registered users cannot review audit metadata; that remains administrator-only.
+
+## Search and deletion follow-up
+
+Search filtering is done in the same parameterized SQL query as the parenthesized document ownership/permission predicate, before LIMIT. LOCATE with parameters treats wildcard and SQL-like text literally. ADMIN does not receive automatic document access. Dates and lengths are validated; date sessions use UTC. The individual metadata route also checks document access and audits both success and refusal.
+
+Do not remove FOR UPDATE to work around a deployment grant failure: it serializes mutation authorization with sharing/revocation. The runtime account needs UPDATE/DELETE only on documents and document_permissions, never on audit_events. An isolated regression test reproduces the missing document privilege, applies the narrow grant, and verifies deletion and retained audit protection. The submitted live grant is deliberately unchanged until approved.

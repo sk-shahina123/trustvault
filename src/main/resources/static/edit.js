@@ -15,8 +15,7 @@ async function initialize() {
     try {
         if (!/^[1-9][0-9]{0,18}$/.test(documentId || "")) throw new Error("Invalid document link.");
         const account = await request("/api/me");
-        const documents = await request("/api/documents");
-        const doc = documents.find(item => String(item.id) === documentId);
+        const doc = await request("/api/documents/" + encodeURIComponent(documentId));
         if (account.role !== "OWNER" || !doc || !["OWNER", "EDIT"].includes(doc.accessLevel)) throw new Error("Document not found or editing unavailable.");
         document.getElementById("name").value = doc.name;
         document.getElementById("category").value = doc.category;

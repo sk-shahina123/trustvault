@@ -134,3 +134,13 @@
 - Correction: Add an explicit GET confirmation page containing the CSRF token; POST /logout invalidates the session, clears authentication/cookie and redirects to /login?logout. GET does not terminate sessions.
 - Verification: Production sources and test sources compile. Added a test covering confirmation rendering, CSRF refusal, preservation of session after refused logout, and successful logout/session invalidation. Execution of new MySQL tests remains pending.
 - Commit: see the sign-out repair commit in repository history.
+
+## 2026-10-25 - Search completion and deletion grant diagnosis after submission
+
+- Request: Complete document deletion and name/owner/category/date search, while protecting the already submitted project.
+- Produced: A separate improvements/search-and-deletion branch; parameterized, permission-scoped search and date validation; filter/clear UI; protected metadata access for older search results; read-only Aiven grant diagnostic with an explicit -Apply switch for a future approved repair.
+- Correction: Previous assurances about the document grant were not supported by the live failure, which still showed SELECT-with-locking permission denial on documents. The new regression test reproduces the missing privilege and demonstrates that a grant limited to documents fixes deletion while audit deletion remains denied. No lock or owner check was removed.
+- Additional correction: An earlier logout regression test expected HTML redirection without asking for HTML. Corrected its Accept header and tested JSON 204 behavior separately.
+- Verification: 49 integration tests passed against isolated MySQL 8.4.7, including search leakage prevention, scoped-grant repair, audit rollback/protection, registration, and logout. JS syntax checks passed. Search browser QA and live deletion verification remain pending approved rollout.
+- Submission protection: No remote main mutation, Aiven privilege change or Render deploy was performed for this update.
+- Commit: See the search-and-deletion improvement commit; no GitHub commit URL exists until this separate branch is published.

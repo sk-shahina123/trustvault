@@ -29,3 +29,8 @@ The static pages do not authorize actions: the backend repeats the decision for 
 
 - `GET /register`: public HTML form with CSRF token.
 - `POST /register`: public, CSRF-protected form (`email`, `password`, `confirmPassword`). The server fixes role to OWNER and ignores any client role field. Success: 303 to `/login?registered`; validation: 400; duplicate email: 409; signup limit: 429; database/audit failure: 503.
+
+## Search and document metadata (improvement branch)
+
+- `GET /api/documents?name=...&owner=...&category=...&dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD`: authenticated enabled account; only owned or explicitly shared documents. All filters are optional and combine with AND. Text is matched as case-insensitive literal substrings. Dates are inclusive UTC dates. Maximum field lengths: name 255, owner 254, category 100. Invalid dates/ranges/lengths return 400 and a LIST failure audit event. Returns newest 100 matches after filtering. No privileged ADMIN bypass.
+- `GET /api/documents/{id}`: authenticated enabled owner or READ/EDIT recipient; metadata only. Returns 200 with no-store or 404 for missing/unavailable documents, with READ audit entries. Used by the edit page so old documents remain accessible beyond the default listing limit.

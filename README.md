@@ -77,7 +77,7 @@ Also open the URL in a private browser window on a different device/network. Ver
 
 Implemented: authentication, upload validation, filtered listing, download authorization, READ/EDIT grants, revocation, document editing/deletion, administrator audit viewing, and automated security checks.
 
-Not complete: search by name/owner/category/date (the current search controls remain disabled), public deployment verification, the five-minute submission recording, and any additional product polish. No antivirus, file-version history, recovery, per-user storage quota, MFA or comprehensive rate limiting is implemented. See `THREATS.md` for the accepted boundaries. Do not upload real confidential data to a deployment with public demo credentials.
+This review branch adds search by name, owner email, category and inclusive UTC dates. It has not been deployed to the submitted site. See `IMPROVEMENTS.md` for the frozen baseline and separately approved rollout procedure. The submitted live deletion grant still needs approval and verification. Submission recording and additional product polish are outside this update. No antivirus, file-version history, recovery, per-user storage quota, MFA or comprehensive rate limiting is implemented. See `THREATS.md` for the accepted boundaries. Do not upload real confidential data to a deployment with public demo credentials.
 
 API policy: `API.md`. Security analysis: `THREATS.md`. AI assistance history: `PROMPTS.md`.
 
@@ -86,3 +86,7 @@ API policy: `API.md`. Security analysis: `THREATS.md`. AI assistance history: `P
 Open `/register` or use **Create an account** on the login page. New accounts always have OWNER role: they can upload and manage their own private documents and receive explicit grants. Public registration never creates an administrator. Sign in after registering; no email ownership verification is performed, so only use synthetic demo information. Passwords require at least 12 characters and at most 72 UTF-8 bytes and are hashed with BCrypt. CSRF tokens are required. Account creation and its REGISTER audit record commit together. Duplicate addresses are refused without changing the existing account.
 
 Signup is limited to 10 attempts per client address per hour and 100 attempts per process per hour. This in-memory control resets on restart and is not distributed; shared networks may reach the limit. Email verification, account recovery, and storage quotas remain out of scope. Audit review remains ADMIN-only.
+
+## Search (improvement branch only)
+
+The document screen supports name, owner email, category, upload start date, and upload end date. Filters combine with AND. Text searches are case-insensitive literal substring matches, including literal `%` and `_`. Dates are inclusive UTC dates; invalid or reversed ranges are refused. Only owned or explicitly shared documents may appear, including when ADMIN searches. The newest 100 matches are shown after filtering; clear filters restores the default accessible listing. An authorized metadata endpoint allows editing older search results without relying on the default first 100 entries.

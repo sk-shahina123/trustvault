@@ -133,6 +133,8 @@
         margin-top: 20px;
     }
 
+    .search-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 12px; }
+
     .search-row {
         display: flex;
         gap: 10px;
@@ -249,18 +251,28 @@
                 Documents you own and documents shared with you.
             </p>
 
-            <fieldset id="searchFields" disabled>
-                <label for="searchName">Search by document name</label>
-
-                <div class="search-row">
-                    <input id="searchName" type="search"
-                           placeholder="Enter a document name">
-
-                    <button id="searchButton" type="button">
-                        Search
-                    </button>
-                </div>
-            </fieldset>
+            <form id="searchForm">
+                <fieldset id="searchFields" disabled>
+                    <legend>Find documents you can access</legend>
+                    <div class="search-filters">
+                        <div><label for="searchName">Document name</label>
+                        <input id="searchName" name="name" type="search" maxlength="255" placeholder="Part of the name"></div>
+                        <div><label for="searchOwner">Owner email</label>
+                        <input id="searchOwner" name="owner" type="search" maxlength="254" placeholder="Part of the owner's email"></div>
+                        <div><label for="searchCategory">Category</label>
+                        <input id="searchCategory" name="category" type="search" maxlength="100" placeholder="Part of the category"></div>
+                        <div><label for="searchFrom">Uploaded from (UTC)</label>
+                        <input id="searchFrom" name="dateFrom" type="date" min="1000-01-01" max="9999-12-31"></div>
+                        <div><label for="searchTo">Uploaded through (UTC)</label>
+                        <input id="searchTo" name="dateTo" type="date" min="1000-01-01" max="9999-12-31"></div>
+                    </div>
+                    <div class="search-row">
+                        <button id="searchButton" type="submit">Search</button>
+                        <button id="clearSearch" type="button">Clear filters</button>
+                    </div>
+                    <p class="hint" id="searchStatus" role="status">Newest 100 matching documents. All selected filters apply together.</p>
+                </fieldset>
+            </form>
 
             <div class="table-scroll">
                 <table>

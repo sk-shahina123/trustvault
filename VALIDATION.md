@@ -23,3 +23,14 @@ For document 2, user-supplied audit rows showed GRANT/SUCCESS (24), viewer DOWNL
 Live deployed commit cfb648a passed all three demo logins, upload, safe download headers, CSRF rejection, unauthorized access, sharing, READ edit/delete denial, admin audit denial for viewer, and same-session revocation. The script stopped at owner deletion: Aiven reported `SELECT with locking clause command denied` on `documents`. Apply database/005_grant_document_management.sql as the cloud administrator and rerun. Synthetic test document ID 3 needs cleanup after that grant. Admin audit contents and successful owner deletion are not yet verified by the full live script.
 
 Logout repair: `mvn -DskipTests test-compile` passed. A session/CSRF regression test was added, but not executed against MySQL in this session. Live ADMIN login and /audit.html returned success; audit API verification is recorded separately once complete.
+
+## Isolated improvement-branch verification — 25 October 2026
+
+- Branch: improvements/search-and-deletion; submitted baseline fd596161081c279b301eb68578ecc21f54bfb064 left unchanged remotely.
+- Full real-MySQL integration suite: **49 tests, 0 failures, 0 errors, 0 skipped**, MySQL 8.4.7, Java 17.0.20.
+- Search checks: combined case-insensitive filters, ownership and READ scope, ADMIN isolation, revocation, literal wildcard/SQL-like inputs, inclusive dates, invalid inputs, filtering before the 100-row limit, and protected individual metadata access.
+- Deletion repair reproduced the exact missing-privilege condition by revoking document UPDATE/DELETE in the isolated test database. Owner deletion returned 503 and retained the document; granting only documents UPDATE/DELETE restored deletion. Cross-owner deletion remained denied, permission rows were removed, successful deletion was audited, and audit DELETE remained forbidden.
+- Registration, login-page rendering, CSRF, HTML/API logout and session invalidation tests now all executed and passed, in addition to the earlier suite.
+- Initial full run found one test expectation issue: no-Accept logout returns 204 rather than a browser redirect. Corrected the HTML test to request text/html and added a separate JSON 204/session-invalidation test. No live logout behavior was changed.
+- Dashboard/edit JavaScript syntax checks passed. No new interactive browser acceptance check was performed for the search UI.
+- No Aiven grant was applied; no remote main branch update or Render deployment was performed. Production deletion remains pending separately approved application of the scoped grant and a live recheck.

@@ -62,12 +62,24 @@ public class DocumentController {
 
     @GetMapping("/api/documents")
     public ResponseEntity<List<DocumentService.DocumentSummary>> list(
-            Authentication authentication) {
+            Authentication authentication,
+            @RequestParam(name = "name", required = false) String name,
+            @RequestParam(name = "owner", required = false) String owner,
+            @RequestParam(name = "category", required = false) String category,
+            @RequestParam(name = "dateFrom", required = false) String dateFrom,
+            @RequestParam(name = "dateTo", required = false) String dateTo) {
 
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(documentService.list(authentication.getName()));
+                .body(documentService.search(authentication.getName(), name, owner, category, dateFrom, dateTo));
     }
+    @GetMapping("/api/documents/{documentId}")
+    public ResponseEntity<DocumentService.DocumentSummary> details(Authentication authentication,
+            @PathVariable("documentId") long documentId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(documentService.details(authentication.getName(), documentId));
+    }
+
     @PostMapping(value = "/api/documents/{documentId}/edit",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> edit(Authentication authentication,

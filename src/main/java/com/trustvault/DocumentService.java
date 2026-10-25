@@ -5,6 +5,9 @@ import java.io.InputStream;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.List;
+import java.util.ArrayList;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -170,12 +173,34 @@ public class DocumentService {
     }
 
     public List<DocumentSummary> list(String authenticatedEmail) {
+        return search(authenticatedEmail, null, null, null, null, null);
+    }
+
+    public List<DocumentSummary> search(String authenticatedEmail, String name,
+            String owner, String category, String dateFrom, String dateTo) {
+        String cleanName;
+        String cleanOwner;
+        String cleanCategory;
+        LocalDate from;
+        LocalDate to;
+        try {
+            cleanName = searchText(name, 255);
+            cleanOwner = searchText(owner, 254);
+            cleanCategory = searchText(category, 100);
+            from = searchDate(dateFrom);
+            to = searchDate(dateTo);
+            if (from != null && to != null && from.isAfter(to))
+                throw problem(400, "The start date must not be after the end date.");
+        } catch (ResponseStatusException exception) {
+            auditService.recordFailure(null, authenticatedEmail, null, EventType.LIST,
+                    "INVALID_SEARCH_FILTERS");
+            throw exception;
+        }
         return Objects.requireNonNull(transactions.execute(status -> {
             Account actor = currentAccount(authenticatedEmail, EventType.LIST);
             // Return metadata only for owned or explicitly shared documents.
             // Being ADMIN does not automatically grant document access.
-            List<DocumentSummary> documents = jdbcTemplate.query(
-                    """
+            StringBuilder sql = new StringBuilder("""
                     SELECT d.id, d.name, owner.email AS owner_email,
                            d.category, d.created_at,
                            CASE
@@ -188,10 +213,24 @@ public class DocumentService {
                     JOIN app_users owner ON owner.id = d.owner_id
                     LEFT JOIN document_permissions p
                         ON p.document_id = d.id AND p.user_id = ?
-                    WHERE d.owner_id = ? OR p.permission IN ('READ', 'EDIT')
-                    ORDER BY d.created_at DESC, d.id DESC
-                    LIMIT 100
-                    """,
+                    WHERE (d.owner_id = ? OR p.permission IN ('READ', 'EDIT'))
+                      AND LOCATE(LOWER(?), LOWER(d.name)) > 0
+                      AND LOCATE(LOWER(?), LOWER(owner.email)) > 0
+                      AND LOCATE(LOWER(?), LOWER(d.category)) > 0
+                    """);
+            List<Object> parameters = new ArrayList<>(List.of(actor.id(), actor.role(),
+                    actor.id(), actor.id(), cleanName, cleanOwner, cleanCategory));
+            // Connection sessions use UTC. Date endpoints are both inclusive.
+            if (from != null) {
+                sql.append(" AND DATE(d.created_at) >= CAST(? AS DATE)");
+                parameters.add(from.toString());
+            }
+            if (to != null) {
+                sql.append(" AND DATE(d.created_at) <= CAST(? AS DATE)");
+                parameters.add(to.toString());
+            }
+            sql.append(" ORDER BY d.created_at DESC, d.id DESC LIMIT 100");
+            List<DocumentSummary> documents = jdbcTemplate.query(sql.toString(),
                     (rs, rowNumber) -> new DocumentSummary(
                             rs.getLong("id"),
                             rs.getString("name"),
@@ -200,10 +239,7 @@ public class DocumentService {
                             rs.getTimestamp("created_at")
                                     .toInstant().toString(),
                             rs.getString("access_level")),
-                    actor.id(),
-                    actor.role(),
-                    actor.id(),
-                    actor.id());
+                    parameters.toArray());
 
             auditService.recordSuccess(
                     actor.id(),
@@ -215,6 +251,53 @@ public class DocumentService {
             return documents;
         }));
     }
+    private String searchText(String value, int limit) {
+        String text = value == null ? "" : value.strip();
+        if (text.length() > limit || text.codePoints().anyMatch(Character::isISOControl))
+            throw problem(400, "A search field is too long or contains invalid characters.");
+        return text;
+    }
+
+    private LocalDate searchDate(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            if (!value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}"))
+                throw new DateTimeParseException("Invalid ISO date", value, 0);
+            LocalDate date = LocalDate.parse(value);
+            if (date.getYear() < 1000) throw problem(400, "Use dates from year 1000 onwards.");
+            return date;
+        } catch (DateTimeParseException exception) {
+            throw problem(400, "Use a valid date in YYYY-MM-DD format.");
+        }
+    }
+
+    public DocumentSummary details(String email, long documentId) {
+        DocumentSummary result = transactions.execute(status -> {
+            Account actor = currentAccount(email, EventType.READ);
+            List<DocumentSummary> matches = jdbcTemplate.query("""
+                    SELECT d.id, d.name, owner.email AS owner_email, d.category, d.created_at,
+                        CASE WHEN d.owner_id = ? THEN 'OWNER'
+                             WHEN p.permission = 'EDIT' AND ? = 'OWNER' THEN 'EDIT'
+                             ELSE 'READ' END AS access_level
+                    FROM documents d JOIN app_users owner ON owner.id = d.owner_id
+                    LEFT JOIN document_permissions p ON p.document_id = d.id AND p.user_id = ?
+                    WHERE d.id = ? AND (d.owner_id = ? OR p.permission IN ('READ', 'EDIT'))
+                    """, (rs, row) -> new DocumentSummary(rs.getLong("id"), rs.getString("name"),
+                        rs.getString("owner_email"), rs.getString("category"),
+                        rs.getTimestamp("created_at").toInstant().toString(), rs.getString("access_level")),
+                    actor.id(), actor.role(), actor.id(), documentId, actor.id());
+            if (matches.isEmpty()) return null;
+            auditService.recordSuccess(actor.id(), actor.email(), documentId, EventType.READ,
+                    "DOCUMENT_METADATA_AUTHORIZED");
+            return matches.get(0);
+        });
+        if (result == null) {
+            auditService.recordDenied(null, email, documentId, EventType.READ, "NOT_FOUND_OR_NO_ACCESS");
+            throw problem(404, "Document not found or access unavailable.");
+        }
+        return result;
+    }
+
 public record DocumentDownload(
         String filename, String contentType, byte[] data) {
 }
