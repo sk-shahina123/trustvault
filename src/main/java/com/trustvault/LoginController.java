@@ -22,7 +22,7 @@ public class LoginController {
                 body{margin:0;background:#eef2f7;color:#172b4d;font:16px system-ui,sans-serif;display:grid;place-items:center;min-height:100vh}
                 main{background:white;padding:32px;border-radius:16px;width:min(360px,80vw);box-shadow:0 12px 40px #172b4d18}
                 h1{margin-top:0}label{display:block;margin:18px 0 6px}
-                input,button{box-sizing:border-box;width:100%;padding:12px;border:1px solid #b8c4d4;border-radius:8px;font:inherit}
+                input,button{box-sizing:border-box;width:100%%;padding:12px;border:1px solid #b8c4d4;border-radius:8px;font:inherit}
                 button{margin-top:24px;background:#174ea6;color:white;border:0;cursor:pointer}
                 [role=alert]{color:#b42318}
                 </style></head><body><main><h1>TrustVault</h1><p>Secure document access</p>

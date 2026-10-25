@@ -47,14 +47,14 @@ class Client:
         return json.loads(body)
 
     def login(self, email, password):
-        status, _, body = self.request("/login")
+        status, _, body = self.request("/login", headers={"Accept": "text/html"})
         assert status == 200, ("Login page", status)
         parser = Inputs()
         parser.feed(body.decode())
         assert "_csrf" in parser.inputs, "Login CSRF token missing"
         data = urllib.parse.urlencode({"username": email, "password": password,
                                       "_csrf": parser.inputs["_csrf"]}).encode()
-        self.request("/login", "POST", data, {"Content-Type": "application/x-www-form-urlencoded"})
+        self.request("/login", "POST", data, {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/html"})
         assert self.json("/api/me")["email"] == email, "Login failed"
 
     def change(self, path, method, body=None, content_type=None):
