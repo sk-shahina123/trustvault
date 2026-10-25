@@ -85,3 +85,14 @@
 - Manual verification: The viewer's direct download request returned "Document not found or access unavailable". SQL checks confirmed owner SUCCESS and viewer DENIED download audit records.
 - Lesson: Successful Spring Boot startup alone does not establish that database authentication works.
 - Pending: Automated permission and audit tests.
+## 2026-10-25 - Authentication recovery and sharing verification
+
+- Prompt/task summary: Resolve invalid credentials after application startup, then continue sharing and revocation verification.
+- AI assistance: Direct JDBC diagnostics, credential synchronization commands, permission service/controller, sharing UI, and recipient-aware audit records.
+- Correction: Manual password reset and synchronization attempts still produced MySQL 1045. We generated one password, applied it to Aiven, tested the identical value through Java, and started the application only after success. The precise cause of the earlier password mismatch was not established.
+- Authentication verified: /api/me returned owner@trustvault.test with role OWNER.
+- Filename review: Normalized Permissions.html and Permissions.js to lowercase and matched their references for case-sensitive deployment.
+- Manual sharing evidence for document 2: audit 24 GRANT SUCCESS; audit 27 viewer DOWNLOAD SUCCESS; audit 28 REVOKE SUCCESS; audit 31 viewer DOWNLOAD DENIED.
+- Revocation check: The viewer remained signed in, the document disappeared after refresh, and the previously copied download URL was denied.
+- Limits: These are manual checks. Automated negative tests, document editing/deletion, and deployment remain pending.
+- Commit link: Add the actual GitHub commit URL after pushing.

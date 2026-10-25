@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Manage sharing | TrustVault</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #f3f6fa;
+            color: #172338;
+            font: 16px/1.5 system-ui, sans-serif;
+        }
+        main {
+            max-width: 900px;
+            margin: 36px auto;
+            padding: 0 20px;
+        }
+        a { color: #174ca5; }
+        h1 { margin-bottom: 4px; overflow-wrap: anywhere; }
+        section {
+            background: white;
+            padding: 24px;
+            margin-top: 24px;
+            border: 1px solid #dbe3ef;
+            border-radius: 12px;
+        }
+        fieldset {
+            border: 0;
+            padding: 0;
+            margin: 0;
+            min-width: 0;
+        }
+        legend {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin: 12px 0 6px;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            font: inherit;
+            border: 1px solid #8998b0;
+            border-radius: 6px;
+        }
+        button {
+            padding: 9px 14px;
+            margin: 8px 8px 0 0;
+            font: inherit;
+            border: 1px solid #174ca5;
+            border-radius: 6px;
+            background: #174ca5;
+            color: white;
+            cursor: pointer;
+        }
+        button.danger {
+            background: white;
+            color: #a11b28;
+            border-color: #a11b28;
+        }
+        button:disabled { opacity: .55; cursor: not-allowed; }
+        :focus-visible {
+            outline: 3px solid #e89b20;
+            outline-offset: 3px;
+        }
+        .muted { color: #52617a; }
+        #message { min-height: 24px; overflow-wrap: anywhere; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td {
+            text-align: left;
+            padding: 12px 8px;
+            border-bottom: 1px solid #e1e7ef;
+        }
+        td:first-child { overflow-wrap: anywhere; }
+    </style>
+    <script src="/permissions.js" defer></script>
+</head>
+<body>
+<main>
+    <a href="/">← Back to dashboard</a>
+
+    <h1>Manage sharing</h1>
+    <p id="documentName" class="muted">Loading document…</p>
+    <p id="account" class="muted"></p>
+
+    <noscript>Enable JavaScript to manage sharing.</noscript>
+
+    <section>
+        <form id="permissionForm">
+            <fieldset id="permissionFields" disabled>
+                <legend>Grant or change access</legend>
+
+                <label for="recipientEmail">Recipient email</label>
+                <input id="recipientEmail"
+                       name="email"
+                       type="email"
+                       maxlength="254"
+                       required
+                       autocomplete="off">
+
+                <label for="permission">Permission</label>
+                <select id="permission" name="permission">
+                    <option value="READ">READ</option>
+                    <option value="EDIT">EDIT</option>
+                </select>
+
+                <p class="muted">
+                    VIEWER and ADMIN accounts can receive READ.
+                    OWNER accounts can receive READ or EDIT.
+                </p>
+
+                <button type="submit">Save permission</button>
+            </fieldset>
+        </form>
+
+        <p id="message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section>
+        <h2>People with access</h2>
+        <p class="muted">The document owner always retains access.</p>
+
+        <button id="refreshButton" type="button" disabled>
+            Refresh permissions
+        </button>
+
+        <div class="table-wrap">
+            <table aria-label="People with access to this document">
+                <thead>
+                <tr>
+                    <th scope="col">Account</th>
+                    <th scope="col">Permission</th>
+                    <th scope="col">Actions</th>
+                </tr>
+                </thead>
+                <tbody id="permissionsBody"></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

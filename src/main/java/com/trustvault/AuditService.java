@@ -51,7 +51,28 @@ public class AuditService {
                 eventType, "FAILURE", reason
         );
     }
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordPermissionSuccess(
+            Long actorId, String actorEmail, Long documentId,
+            EventType eventType, String reason,
+            Long recipientId, String recipientEmail,
+            String previousPermission, String permission) {
 
+        jdbcTemplate.update(
+                """
+                INSERT INTO audit_events
+                    (actor_id, actor_email, document_id,
+                     event_type, outcome, details)
+                VALUES (?, ?, ?, ?, 'SUCCESS', JSON_OBJECT(
+                    'reason', ?,
+                    'recipientId', ?,
+                    'recipientEmail', ?,
+                    'previousPermission', ?,
+                    'permission', ?))
+                """,
+                actorId, actorEmail, documentId, eventType.name(), reason,
+                recipientId, recipientEmail, previousPermission, permission);
+    }
     private void insertEvent(
             Long actorId, String actorEmail, Long documentId,
             EventType eventType, String outcome, String reason) {

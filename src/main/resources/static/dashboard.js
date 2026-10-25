@@ -139,6 +139,18 @@ downloadLink.setAttribute(
 const downloadContainer = document.createElement("div");
 downloadContainer.appendChild(downloadLink);
 row.firstElementChild.appendChild(downloadContainer);
+if (entry.accessLevel === "OWNER" &&
+        currentAccount?.role === "OWNER") {
+
+    const sharingLink = document.createElement("a");
+    sharingLink.textContent = "Manage sharing";
+    sharingLink.href = "/permissions.html?documentId=" +
+        encodeURIComponent(String(entry.id));
+
+    const sharingContainer = document.createElement("div");
+    sharingContainer.appendChild(sharingLink);
+    row.firstElementChild.appendChild(sharingContainer);
+}
             return row;
         });
 
